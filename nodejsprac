@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build Your First Node.js API</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #151820;
+    --surface2: #1c2030;
+    --border: #252a3a;
+    --accent: #4ade80;
+    --accent2: #38bdf8;
+    --accent3: #f59e0b;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --code-bg: #0a0c10;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    padding: 48px 40px 32px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    top: -60px; left: -60px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(74,222,128,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-tag::before { content: ''; width: 20px; height: 1px; background: var(--accent); }
+  h1 {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+  h1 span { color: var(--accent); }
+  .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 500px;
+  }
+  .progress-bar-wrap {
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .progress-bar {
+    flex: 1;
+    max-width: 300px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 99px;
+    transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+    width: 0%;
+  }
+  .progress-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* LAYOUT */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: calc(100vh - 160px);
+  }
+
+  /* SIDEBAR */
+  aside {
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    position: sticky;
+    top: 0;
+    height: calc(100vh - 160px);
+    overflow-y: auto;
+  }
+  .aside-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding: 0 8px;
+  }
+  .task-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 4px;
+    border: 1px solid transparent;
+  }
+  .task-nav-item:hover { background: var(--surface); }
+  .task-nav-item.active { background: var(--surface2); border-color: var(--border); }
+  .task-nav-item.done .nav-check { background: var(--accent); border-color: var(--accent); color: #000; }
+  .nav-check {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    transition: all 0.3s;
+  }
+  .task-nav-item.active .nav-check { border-color: var(--accent2); color: var(--accent2); }
+  .nav-title { font-size: 13px; font-weight: 600; line-height: 1.3; }
+  .nav-sub { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+  /* MAIN */
+  main {
+    padding: 32px 40px;
+    max-width: 860px;
+  }
+
+  .task-section { display: none; }
+  .task-section.active { display: block; }
+
+  .task-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .task-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    background: rgba(56,189,248,0.1);
+    border: 1px solid rgba(56,189,248,0.2);
+    padding: 4px 10px;
+    border-radius: 99px;
+    white-space: nowrap;
+    margin-top: 4px;
+  }
+  .task-title { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+  .task-goal {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .task-goal strong { color: var(--accent); font-weight: 600; }
+
+  /* CONCEPT BOX */
+  .concept-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent2);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0;
+  }
+  .concept-box h3 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent2);
+    margin-bottom: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .concept-box p { font-size: 14px; color: var(--text); opacity: 0.85; }
+  .concept-box p + p { margin-top: 8px; }
+
+  /* STEPS */
+  .steps { margin: 24px 0; }
+  .step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 14px; top: 32px;
+    width: 1px;
+    height: calc(100% - 8px);
+    background: var(--border);
+  }
+  .step-dot {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    flex-shrink: 0;
+    color: var(--accent3);
+    border-color: var(--accent3);
+    z-index: 1;
+  }
+  .step-body { flex: 1; }
+  .step-body h4 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .step-body p { font-size: 14px; color: var(--text); opacity: 0.8; margin-bottom: 10px; }
+
+  /* CODE BLOCKS */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 10px 0;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .code-lang {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent3);
+    letter-spacing: 1px;
+  }
+  .copy-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+  pre {
+    padding: 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .kw { color: #c792ea; }
+  .fn { color: #82aaff; }
+  .str { color: #c3e88d; }
+  .cmt { color: #546e7a; font-style: italic; }
+  .num { color: #f78c6c; }
+  .var { color: #ffcb6b; }
+
+  /* TEST SECTION */
+  .test-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent3);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0;
+  }
+  .test-box h3 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent3);
+    margin-bottom: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .test-cmd {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    border-radius: 6px;
+    margin: 8px 0;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .test-cmd::before { content: '$'; color: var(--muted); }
+
+  /* CHECKLIST */
+  .checklist { margin: 20px 0; }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: 1px solid transparent;
+  }
+  .check-item:hover { background: var(--surface); }
+  .check-item.checked { background: rgba(74,222,128,0.05); border-color: rgba(74,222,128,0.15); }
+  .checkbox {
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    font-size: 11px;
+  }
+  .check-item.checked .checkbox { background: var(--accent); border-color: var(--accent); color: #000; }
+  .check-label { font-size: 14px; }
+  .check-item.checked .check-label { text-decoration: line-through; color: var(--muted); }
+
+  /* NAV BUTTONS */
+  .task-nav-btns {
+    display: flex;
+    gap: 12px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+  .btn {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #22c55e; transform: translateY(-1px); }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn:disabled { opacity: 0.3; cursor: default; transform: none; }
+
+  /* CONGRATS */
+  .congrats {
+    text-align: center;
+    padding: 60px 20px;
+  }
+  .congrats .trophy { font-size: 64px; margin-bottom: 20px; }
+  .congrats h2 { font-size: 36px; font-weight: 800; margin-bottom: 12px; }
+  .congrats h2 span { color: var(--accent); }
+  .congrats p { color: var(--muted); max-width: 400px; margin: 0 auto; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+  @media (max-width: 700px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { display: none; }
+    main { padding: 24px 20px; }
+    header { padding: 32px 20px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-tag">Learning Path</div>
+  <h1>Build Your First<br><span>Node.js API</span></h1>
+  <p class="subtitle">Hands-on tasks to go from zero to a working REST API with SQLite — deployed & tested in production.</p>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-label" id="progressLabel">0 / 6 complete</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="aside-label">Tasks</div>
+    <div id="taskNav"></div>
+  </aside>
+  <main id="mainContent"></main>
+</div>
+
+<script>
+const tasks = [
+  {
+    id: 0,
+    title: "What is an API?",
+    sub: "The concept",
+    goal: "<strong>Understand</strong> what an API is and why it exists before writing any code.",
+    concept: {
+      title: "🧠 Core Concept",
+      body: [
+        "An <strong>API (Application Programming Interface)</strong> is a way for two programs to talk to each other. Think of it like a waiter in a restaurant — you (the client) tell the waiter (the API) what you want, and the waiter brings it from the kitchen (the server/database).",
+        "A <strong>REST API</strong> uses HTTP — the same protocol your browser uses to load websites. It has URLs (called endpoints) and responds with data, usually in <strong>JSON format</strong>.",
+        "Example: When your weather app shows the forecast, it's calling a weather company's API behind the scenes!"
+      ]
+    },
+    steps: [
+      { n: "1", title: "4 HTTP Methods to Know", desc: "REST APIs use 4 main actions (called methods):", code: `<span class="cmt">// GET    → Read data   (e.g. get all users)</span>
+<span class="cmt">// POST   → Create data (e.g. create a new user)</span>
+<span class="cmt">// PUT    → Update data (e.g. update a user's name)</span>
+<span class="cmt">// DELETE → Delete data (e.g. delete a user)</span>
+
+<span class="cmt">// Every API endpoint looks like this:</span>
+<span class="cmt">// GET    /users         → get all users</span>
+<span class="cmt">// GET    /users/1       → get user with id=1</span>
+<span class="cmt">// POST   /users         → create new user</span>
+<span class="cmt">// PUT    /users/1       → update user with id=1</span>
+<span class="cmt">// DELETE /users/1       → delete user with id=1</span>`, lang: "CONCEPT" },
+      { n: "2", title: "What is JSON?", desc: "APIs send and receive data in JSON — it looks like this:", code: `<span class="cmt">// JSON = JavaScript Object Notation</span>
+<span class="cmt">// It's just structured text that both humans & computers can read</span>
+
+{
+  <span class="str">"id"</span>: <span class="num">1</span>,
+  <span class="str">"name"</span>: <span class="str">"Alice"</span>,
+  <span class="str">"email"</span>: <span class="str">"alice@example.com"</span>,
+  <span class="str">"age"</span>: <span class="num">28</span>
+}`, lang: "JSON" }
+    ],
+    checks: ["I understand what an API is", "I know what GET, POST, PUT, DELETE do", "I know what JSON looks like"],
+    test: null
+  },
+  {
+    id: 1,
+    title: "Project Setup",
+    sub: "Node.js + Express",
+    goal: "<strong>Set up</strong> a Node.js project with Express and get a server running.",
+    concept: {
+      title: "🧠 What is Express?",
+      body: [
+        "<strong>Node.js</strong> lets you run JavaScript on your computer/server (not just in a browser).",
+        "<strong>Express</strong> is a tiny library that makes it easy to create API endpoints in Node.js. It's the most popular choice for building APIs."
+      ]
+    },
+    steps: [
+      { n: "1", title: "Create your project folder", desc: "Open your terminal and run these commands:", code: `<span class="cmt"># Create a new folder and enter it</span>
+mkdir my-first-api
+cd my-first-api
+
+<span class="cmt"># Initialize a Node.js project (creates package.json)</span>
+npm init -y
+
+<span class="cmt"># Install Express and better-sqlite3</span>
+npm install express better-sqlite3
+
+<span class="cmt"># Install nodemon (auto-restarts server on file changes)</span>
+npm install --save-dev nodemon`, lang: "BASH" },
+      { n: "2", title: "Update package.json scripts", desc: "Open package.json and add a start script:", code: `{
+  <span class="str">"name"</span>: <span class="str">"my-first-api"</span>,
+  <span class="str">"scripts"</span>: {
+    <span class="str">"start"</span>: <span class="str">"node server.js"</span>,
+    <span class="str">"dev"</span>: <span class="str">"nodemon server.js"</span>
+  }
+}`, lang: "JSON" },
+      { n: "3", title: "Create server.js — Your first server!", desc: "Create a file called server.js in your project folder:", code: `<span class="kw">const</span> <span class="var">express</span> = <span class="fn">require</span>(<span class="str">'express'</span>)
+<span class="kw">const</span> <span class="var">app</span> = <span class="fn">express</span>()
+
+<span class="cmt">// This lets Express read JSON from requests</span>
+<span class="var">app</span>.<span class="fn">use</span>(<span class="var">express</span>.<span class="fn">json</span>())
+
+<span class="cmt">// Your first endpoint!</span>
+<span class="var">app</span>.<span class="fn">get</span>(<span class="str">'/'</span>, (req, res) => {
+  res.<span class="fn">json</span>({ message: <span class="str">'Hello from my API! 🎉'</span> })
+})
+
+<span class="cmt">// Start the server on port 3000</span>
+<span class="var">app</span>.<span class="fn">listen</span>(<span class="num">3000</span>, () => {
+  console.<span class="fn">log</span>(<span class="str">'Server running on http://localhost:3000'</span>)
+})`, lang: "JS — server.js" }
+    ],
+    checks: ["I ran npm init -y", "I installed express and better-sqlite3", "I created server.js", "Server starts with npm run dev"],
+    test: {
+      title: "🧪 Test It",
+      cmds: ["npm run dev", "curl http://localhost:3000", "# or open http://localhost:3000 in your browser"]
+    }
+  },
+  {
+    id: 2,
+    title: "Connect SQLite",
+    sub: "Database setup",
+    goal: "<strong>Connect</strong> a SQLite database and create a users table automatically on startup.",
+    concept: {
+      title: "🧠 What is SQLite?",
+      body: [
+        "<strong>SQLite</strong> is a simple database that saves all data into a single file (database.db) on your computer. No setup required — perfect for learning and small apps.",
+        "We'll use it to store users, and our API will read/write from it."
+      ]
+    },
+    steps: [
+      { n: "1", title: "Create database.js", desc: "Create a new file called database.js:", code: `<span class="kw">const</span> <span class="var">Database</span> = <span class="fn">require</span>(<span class="str">'better-sqlite3'</span>)
+
+<span class="cmt">// Creates (or opens) a file called database.db</span>
+<span class="kw">const</span> <span class="var">db</span> = <span class="kw">new</span> <span class="fn">Database</span>(<span class="str">'database.db'</span>)
+
+<span class="cmt">// Create a users table if it doesn't exist</span>
+<span class="var">db</span>.<span class="fn">exec</span>(<span class="str">\`
+  CREATE TABLE IF NOT EXISTS users (
+    id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    name  TEXT    NOT NULL,
+    email TEXT    NOT NULL UNIQUE,
+    age   INTEGER
+  )
+\`</span>)
+
+console.<span class="fn">log</span>(<span class="str">'✅ Database connected and table ready'</span>)
+
+<span class="cmt">// Export so other files can use it</span>
+<span class="var">module</span>.<span class="var">exports</span> = <span class="var">db</span>`, lang: "JS — database.js" },
+      { n: "2", title: "Import db into server.js", desc: "Add this line at the top of server.js:", code: `<span class="kw">const</span> <span class="var">express</span> = <span class="fn">require</span>(<span class="str">'express'</span>)
+<span class="kw">const</span> <span class="var">db</span> = <span class="fn">require</span>(<span class="str">'./database'</span>)  <span class="cmt">// ← ADD THIS</span>
+<span class="kw">const</span> <span class="var">app</span> = <span class="fn">express</span>()
+<span class="var">app</span>.<span class="fn">use</span>(<span class="var">express</span>.<span class="fn">json</span>())
+
+<span class="cmt">// ... rest of your code</span>`, lang: "JS — server.js (top)" }
+    ],
+    checks: ["I created database.js", "I imported db into server.js", "Server starts and shows '✅ Database connected'", "A database.db file was created in my folder"],
+    test: {
+      title: "🧪 Test It",
+      cmds: ["npm run dev", "# You should see: ✅ Database connected and table ready"]
+    }
+  },
+  {
+    id: 3,
+    title: "GET & POST Endpoints",
+    sub: "Read & Create",
+    goal: "<strong>Build</strong> endpoints to get all users and create a new user.",
+    concept: null,
+    steps: [
+      { n: "1", title: "GET /users — Fetch all users", desc: "Add this to server.js (after the db import):", code: `<span class="cmt">// GET all users</span>
+<span class="var">app</span>.<span class="fn">get</span>(<span class="str">'/users'</span>, (req, res) => {
+  <span class="cmt">// .all() runs a SQL SELECT and returns an array</span>
+  <span class="kw">const</span> <span class="var">users</span> = <span class="var">db</span>.<span class="fn">prepare</span>(<span class="str">'SELECT * FROM users'</span>).<span class="fn">all</span>()
+  res.<span class="fn">json</span>(users)
+})
+
+<span class="cmt">// GET a single user by ID</span>
+<span class="var">app</span>.<span class="fn">get</span>(<span class="str">'/users/:id'</span>, (req, res) => {
+  <span class="kw">const</span> <span class="var">user</span> = <span class="var">db</span>
+    .<span class="fn">prepare</span>(<span class="str">'SELECT * FROM users WHERE id = ?'</span>)
+    .<span class="fn">get</span>(req.params.id)  <span class="cmt">// :id comes from the URL</span>
+
+  <span class="kw">if</span> (!user) <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">404</span>).<span class="fn">json</span>({ error: <span class="str">'User not found'</span> })
+  res.<span class="fn">json</span>(user)
+})`, lang: "JS — server.js" },
+      { n: "2", title: "POST /users — Create a new user", desc: "Add this below the GET endpoints:", code: `<span class="cmt">// POST — create a new user</span>
+<span class="var">app</span>.<span class="fn">post</span>(<span class="str">'/users'</span>, (req, res) => {
+  <span class="kw">const</span> { name, email, age } = req.body  <span class="cmt">// data from request</span>
+
+  <span class="cmt">// Simple validation</span>
+  <span class="kw">if</span> (!name || !email) {
+    <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">400</span>).<span class="fn">json</span>({ error: <span class="str">'name and email are required'</span> })
+  }
+
+  <span class="kw">try</span> {
+    <span class="kw">const</span> <span class="var">result</span> = <span class="var">db</span>
+      .<span class="fn">prepare</span>(<span class="str">'INSERT INTO users (name, email, age) VALUES (?, ?, ?)'</span>)
+      .<span class="fn">run</span>(name, email, age)
+
+    <span class="cmt">// Send back the new user with their generated ID</span>
+    res.<span class="fn">status</span>(<span class="num">201</span>).<span class="fn">json</span>({ id: result.lastInsertRowid, name, email, age })
+  } <span class="kw">catch</span> (err) {
+    res.<span class="fn">status</span>(<span class="num">400</span>).<span class="fn">json</span>({ error: <span class="str">'Email already exists'</span> })
+  }
+})`, lang: "JS — server.js" }
+    ],
+    checks: ["GET /users returns an empty array []", "POST /users creates a user and returns it with an id", "GET /users now shows the created user", "GET /users/1 returns just that one user"],
+    test: {
+      title: "🧪 Test It",
+      cmds: [
+        "curl http://localhost:3000/users",
+        'curl -X POST http://localhost:3000/users -H "Content-Type: application/json" -d \'{"name":"Alice","email":"alice@example.com","age":28}\'',
+        "curl http://localhost:3000/users/1"
+      ]
+    }
+  },
+  {
+    id: 4,
+    title: "PUT & DELETE Endpoints",
+    sub: "Update & Delete",
+    goal: "<strong>Complete</strong> the full CRUD API by adding update and delete.",
+    concept: {
+      title: "🧠 What is CRUD?",
+      body: [
+        "<strong>CRUD</strong> stands for Create, Read, Update, Delete — the 4 basic operations of any database-backed API.",
+        "You've already done Create (POST) and Read (GET). Now let's add Update (PUT) and Delete (DELETE)!"
+      ]
+    },
+    steps: [
+      { n: "1", title: "PUT /users/:id — Update a user", desc: "Add this to server.js:", code: `<span class="cmt">// PUT — update a user</span>
+<span class="var">app</span>.<span class="fn">put</span>(<span class="str">'/users/:id'</span>, (req, res) => {
+  <span class="kw">const</span> { name, email, age } = req.body
+  <span class="kw">const</span> { id } = req.params
+
+  <span class="cmt">// Check user exists first</span>
+  <span class="kw">const</span> <span class="var">existing</span> = <span class="var">db</span>.<span class="fn">prepare</span>(<span class="str">'SELECT * FROM users WHERE id = ?'</span>).<span class="fn">get</span>(id)
+  <span class="kw">if</span> (!existing) <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">404</span>).<span class="fn">json</span>({ error: <span class="str">'User not found'</span> })
+
+  <span class="var">db</span>.<span class="fn">prepare</span>(<span class="str">'UPDATE users SET name = ?, email = ?, age = ? WHERE id = ?'</span>)
+    .<span class="fn">run</span>(name, email, age, id)
+
+  res.<span class="fn">json</span>({ id: <span class="fn">parseInt</span>(id), name, email, age })
+})`, lang: "JS — server.js" },
+      { n: "2", title: "DELETE /users/:id — Delete a user", desc: "Add this below the PUT endpoint:", code: `<span class="cmt">// DELETE — remove a user</span>
+<span class="var">app</span>.<span class="fn">delete</span>(<span class="str">'/users/:id'</span>, (req, res) => {
+  <span class="kw">const</span> { id } = req.params
+
+  <span class="kw">const</span> <span class="var">existing</span> = <span class="var">db</span>.<span class="fn">prepare</span>(<span class="str">'SELECT * FROM users WHERE id = ?'</span>).<span class="fn">get</span>(id)
+  <span class="kw">if</span> (!existing) <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">404</span>).<span class="fn">json</span>({ error: <span class="str">'User not found'</span> })
+
+  <span class="var">db</span>.<span class="fn">prepare</span>(<span class="str">'DELETE FROM users WHERE id = ?'</span>).<span class="fn">run</span>(id)
+
+  <span class="cmt">// 204 = success, no content to return</span>
+  res.<span class="fn">status</span>(<span class="num">204</span>).<span class="fn">send</span>()
+})`, lang: "JS — server.js" }
+    ],
+    checks: ["PUT /users/1 updates the user", "DELETE /users/1 removes the user", "GET /users/1 returns 404 after deleting", "All 4 CRUD operations work!"],
+    test: {
+      title: "🧪 Test It",
+      cmds: [
+        'curl -X PUT http://localhost:3000/users/1 -H "Content-Type: application/json" -d \'{"name":"Alice Smith","email":"alice@example.com","age":29}\'',
+        "curl -X DELETE http://localhost:3000/users/1",
+        "curl http://localhost:3000/users"
+      ]
+    }
+  },
+  {
+    id: 5,
+    title: "Deploy to Production",
+    sub: "Go live!",
+    goal: "<strong>Deploy</strong> your API to the internet so anyone can use it.",
+    concept: {
+      title: "🧠 What is 'Production'?",
+      body: [
+        "Right now your API only runs on your own computer (localhost). <strong>Deploying</strong> means putting it on a server in the cloud so it's accessible from anywhere with a public URL.",
+        "<strong>Railway</strong> is the easiest free option for Node.js — no credit card needed to get started. Your API gets a live URL like <code style='font-family:JetBrains Mono;color:#4ade80'>https://my-api.railway.app</code>"
+      ]
+    },
+    steps: [
+      { n: "1", title: "Prepare your app for production", desc: "Make the port configurable (Railway uses its own port):", code: `<span class="cmt">// Change your app.listen line to this:</span>
+<span class="kw">const</span> <span class="var">PORT</span> = process.env.<span class="var">PORT</span> || <span class="num">3000</span>
+<span class="var">app</span>.<span class="fn">listen</span>(<span class="var">PORT</span>, () => {
+  console.<span class="fn">log</span>(<span class="str">\`Server running on port \${PORT}\`</span>)
+})`, lang: "JS — server.js" },
+      { n: "2", title: "Push to GitHub", desc: "First, initialize git and push to a new GitHub repo:", code: `<span class="cmt"># Initialize git</span>
+git init
+git add .
+git commit -m <span class="str">"my first API"</span>
+
+<span class="cmt"># Create a repo on github.com, then:</span>
+git remote add origin https://github.com/YOUR_USERNAME/my-first-api.git
+git push -u origin main`, lang: "BASH" },
+      { n: "3", title: "Deploy on Railway", desc: "Railway is the easiest free deployment platform:", code: `<span class="cmt"># Option A: Use Railway CLI</span>
+npm install -g @railway/cli
+railway login
+railway init
+railway up
+
+<span class="cmt"># Option B: Go to railway.app</span>
+<span class="cmt"># → Click "New Project"</span>
+<span class="cmt"># → "Deploy from GitHub repo"</span>
+<span class="cmt"># → Select your repo</span>
+<span class="cmt"># → Railway auto-detects Node.js and deploys!</span>
+<span class="cmt"># → You get a public URL in ~30 seconds</span>`, lang: "BASH" },
+      { n: "4", title: "Test your live API!", desc: "Replace the URL with your Railway URL:", code: `<span class="cmt"># Test your live API from anywhere!</span>
+curl https://your-app.railway.app/users
+
+<span class="cmt"># Create a user on production</span>
+curl -X POST https://your-app.railway.app/users \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"name":"Bob","email":"bob@example.com","age":30}'</span>`, lang: "BASH" }
+    ],
+    checks: ["I updated PORT to use process.env.PORT", "I pushed my code to GitHub", "I deployed on Railway (or similar)", "My API has a live public URL", "I tested my live API with curl or a browser"],
+    test: {
+      title: "🎉 You're Live!",
+      cmds: [
+        "curl https://your-app.railway.app/users",
+        "# Share your API URL with friends!"
+      ]
+    }
+  }
+];
+
+let currentTask = 0;
+const completedChecks = {};
+const completedTasks = new Set();
+
+function buildNav() {
+  const nav = document.getElementById('taskNav');
+  nav.innerHTML = tasks.map((t, i) => `
+    <div class="task-nav-item ${i === 0 ? 'active' : ''} ${completedTasks.has(i) ? 'done' : ''}" onclick="goTo(${i})" id="nav-${i}">
+      <div class="nav-check">${completedTasks.has(i) ? '✓' : i + 1}</div>
+      <div>
+        <div class="nav-title">${t.title}</div>
+        <div class="nav-sub">${t.sub}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function buildMain() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = tasks.map((t, i) => {
+    const checks = completedChecks[i] || new Array(t.checks.length).fill(false);
+    return `
+    <div class="task-section ${i === 0 ? 'active' : ''}" id="task-${i}">
+      <div class="task-header">
+        <div class="task-num">Task ${i + 1} / ${tasks.length}</div>
+        <div>
+          <div class="task-title">${t.title}</div>
+          <div class="task-goal">${t.goal}</div>
+        </div>
+      </div>
+
+      ${t.concept ? `
+      <div class="concept-box">
+        <h3>${t.concept.title}</h3>
+        ${t.concept.body.map(b => `<p>${b}</p>`).join('')}
+      </div>` : ''}
+
+      <div class="steps">
+        ${t.steps.map(s => `
+        <div class="step">
+          <div class="step-dot">${s.n}</div>
+          <div class="step-body">
+            <h4>${s.title}</h4>
+            <p>${s.desc}</p>
+            <div class="code-block">
+              <div class="code-header">
+                <span class="code-lang">${s.lang}</span>
+                <button class="copy-btn" onclick="copyCode(this)">copy</button>
+              </div>
+              <pre>${s.code}</pre>
+            </div>
+          </div>
+        </div>`).join('')}
+      </div>
+
+      ${t.test ? `
+      <div class="test-box">
+        <h3>${t.test.title}</h3>
+        ${t.test.cmds.map(c => `<div class="test-cmd">${c}</div>`).join('')}
+      </div>` : ''}
+
+      <div class="checklist">
+        <div style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;font-family:'JetBrains Mono',monospace;margin-bottom:10px;">✅ Checklist</div>
+        ${t.checks.map((c, ci) => `
+        <div class="check-item ${checks[ci] ? 'checked' : ''}" onclick="toggleCheck(${i}, ${ci})" id="check-${i}-${ci}">
+          <div class="checkbox">${checks[ci] ? '✓' : ''}</div>
+          <div class="check-label">${c}</div>
+        </div>`).join('')}
+      </div>
+
+      <div class="task-nav-btns">
+        <button class="btn btn-secondary" onclick="goTo(${i - 1})" ${i === 0 ? 'disabled' : ''}>← Previous</button>
+        <button class="btn btn-primary" onclick="goTo(${i + 1})" ${i === tasks.length - 1 ? 'disabled' : ''}>
+          ${i === tasks.length - 1 ? '🎉 Done!' : 'Next Task →'}
+        </button>
+      </div>
+    </div>`;
+  }).join('') + `
+  <div class="task-section" id="task-done">
+    <div class="congrats">
+      <div class="trophy">🏆</div>
+      <h2>You built a <span>real API!</span></h2>
+      <p style="margin-bottom:16px">You went from zero to a full CRUD REST API with SQLite, deployed live to the internet. That's genuinely impressive for a beginner!</p>
+      <p><strong>What's next?</strong> Try adding authentication (JWT tokens), a second table (posts, products), or rebuilding it with TypeScript.</p>
+    </div>
+  </div>`;
+}
+
+function goTo(i) {
+  if (i < 0) return;
+  const prev = document.querySelector('.task-section.active');
+  const prevNav = document.querySelector('.task-nav-item.active');
+  if (prev) prev.classList.remove('active');
+  if (prevNav) prevNav.classList.remove('active');
+
+  if (i >= tasks.length) {
+    document.getElementById('task-done').classList.add('active');
+    currentTask = i;
+    return;
+  }
+
+  document.getElementById(`task-${i}`).classList.add('active');
+  document.getElementById(`nav-${i}`)?.classList.add('active');
+  currentTask = i;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleCheck(taskIdx, checkIdx) {
+  if (!completedChecks[taskIdx]) completedChecks[taskIdx] = new Array(tasks[taskIdx].checks.length).fill(false);
+  completedChecks[taskIdx][checkIdx] = !completedChecks[taskIdx][checkIdx];
+
+  const el = document.getElementById(`check-${taskIdx}-${checkIdx}`);
+  el.classList.toggle('checked');
+  el.querySelector('.checkbox').textContent = completedChecks[taskIdx][checkIdx] ? '✓' : '';
+
+  // Check if all done for this task
+  const allDone = completedChecks[taskIdx].every(Boolean);
+  if (allDone) {
+    completedTasks.add(taskIdx);
+    const navEl = document.getElementById(`nav-${taskIdx}`);
+    if (navEl) {
+      navEl.classList.add('done');
+      navEl.querySelector('.nav-check').textContent = '✓';
+    }
+  } else {
+    completedTasks.delete(taskIdx);
+    const navEl = document.getElementById(`nav-${taskIdx}`);
+    if (navEl) {
+      navEl.classList.remove('done');
+      navEl.querySelector('.nav-check').textContent = taskIdx + 1;
+    }
+  }
+
+  updateProgress();
+}
+
+function updateProgress() {
+  const total = tasks.reduce((sum, t) => sum + t.checks.length, 0);
+  let done = 0;
+  for (const k in completedChecks) done += completedChecks[k].filter(Boolean).length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = `${completedTasks.size} / ${tasks.length} complete`;
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  const text = pre.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+buildNav();
+buildMain();
+updateProgress();
+</script>
+</body>
+</html>
